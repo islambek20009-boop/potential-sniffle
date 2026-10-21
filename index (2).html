@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Speed — Internet Speed Test</title>
+  <meta name="description" content="Минималистичный тест скорости интернета в стиле Apple. Спидометр, пинг, IP, флаг и страна.">
+  <style>
+    :root {
+      --bg: #000000;
+      --surface: #111111;
+      --surface-2: #1a1a1a;
+      --border: #2a2a2a;
+      --text: #ffffff;
+      --text-secondary: #a1a1a6;
+      --text-tertiary: #6e6e73;
+      --accent: #ffffff;
+      --radius: 20px;
+      --radius-sm: 12px;
+      --shadow: 0 8px 32px rgba(0,0,0,0.45);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      line-height: 1.4;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    header {
+      padding: 20px 24px 0;
+      text-align: center;
+    }
+
+    .logo {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      opacity: 0.9;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 20px 40px;
+      max-width: 440px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* ===== SPEEDOMETER ===== */
+    .gauge-wrap {
+      position: relative;
+      width: 280px;
+      height: 180px;
+      margin: 0 auto 8px;
+    }
+
+    .gauge-svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    .gauge-bg {
+      fill: none;
+      stroke: #1f1f1f;
+      stroke-width: 14;
+      stroke-linecap: round;
+    }
+
+    .gauge-progress {
+      fill: none;
+      stroke: #ffffff;
+      stroke-width: 14;
+      stroke-linecap: round;
+      stroke-dasharray: 440;
+      stroke-dashoffset: 440;
+      transition: stroke-dashoffset 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+      filter: drop-shadow(0 0 6px rgba(255,255,255,0.35));
+    }
+
+    .gauge-ticks {
+      stroke: #3a3a3a;
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+
+    .needle {
+      transform-origin: 140px 140px;
+      transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+
+    .needle-line {
+      stroke: #ffffff;
+      stroke-width: 3;
+      stroke-linecap: round;
+      filter: drop-shadow(0 0 4px rgba(255,255,255,0.5));
+    }
+
+    .needle-center {
+      fill: #ffffff;
+    }
+
+    .gauge-value {
+      position: absolute;
+      bottom: 8px;
+      left: 0;
+      right: 0;
+      text-align: center;
+    }
+
+    .gauge-number {
+      font-size: 48px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .gauge-unit {
+      font-size: 15px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    .gauge-label {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      font-weight: 500;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    /* ===== STATUS ===== */
+    .status {
+      font-size: 15px;
+      color: var(--text-secondary);
+      min-height: 22px;
+      margin: 12px 0 28px;
+      text-align: center;
+      transition: opacity 0.3s;
+    }
+
+    /* ===== START BUTTON ===== */
+    .start-btn {
+      width: 100%;
+      max-width: 280px;
+      height: 52px;
+      border-radius: 980px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+      font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+      margin-bottom: 32px;
+    }
+
+    .start-btn:hover:not(:disabled) {
+      background: var(--surface-2);
+      border-color: #3a3a3a;
+      transform: scale(1.02);
+    }
+
+    .start-btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    .start-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .start-btn.running {
+      border-color: #ffffff;
+      animation: btnPulse 1.6s ease-in-out infinite;
+    }
+
+    @keyframes btnPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.12); }
+      50% { box-shadow: 0 0 0 10px rgba(255,255,255,0); }
+    }
+
+    /* ===== RESULTS CARDS ===== */
+    .results {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+
+    .results.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 14px;
+    }
+
+    /* Metrics grid */
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .metric {
+      text-align: center;
+      padding: 6px 0;
+    }
+
+    .metric-value {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+    }
+
+    .metric-unit {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-top: 5px;
+      font-weight: 500;
+    }
+
+    /* Location + flag */
+    .location-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .flag {
+      font-size: 42px;
+      line-height: 1;
+      width: 52px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface-2);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .location-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .country-name {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .city-name {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .info-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .info-row:first-of-type {
+      padding-top: 0;
+    }
+
+    .info-label {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .info-value {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      text-align: right;
+      max-width: 58%;
+      word-break: break-all;
+    }
+
+    /* Retry */
+    .retry-btn {
+      width: 100%;
+      max-width: 280px;
+      margin: 8px auto 0;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 600;
+      padding: 13px 24px;
+      border-radius: 980px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+      display: block;
+    }
+
+    .retry-btn:hover {
+      background: var(--surface);
+      border-color: #3a3a3a;
+    }
+
+    .retry-btn:active {
+      transform: scale(0.97);
+    }
+
+    footer {
+      padding: 16px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    @media (max-width: 380px) {
+      .gauge-wrap { width: 250px; height: 160px; }
+      .gauge-number { font-size: 40px; }
+      .metric-value { font-size: 22px; }
+      .flag { font-size: 36px; width: 46px; height: 46px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">Speed</div>
+  </header>
+
+  <main>
+    <!-- Speedometer -->
+    <div class="gauge-wrap">
+      <svg class="gauge-svg" viewBox="0 0 280 160" aria-hidden="true">
+        <!-- Background arc (180°) -->
+        <path class="gauge-bg"
+          d="M 30 140 A 110 110 0 0 1 250 140" />
+
+        <!-- Progress arc -->
+        <path class="gauge-progress" id="gaugeProgress"
+          d="M 30 140 A 110 110 0 0 1 250 140" />
+
+        <!-- Ticks -->
+        <g class="gauge-ticks" id="ticks"></g>
+
+        <!-- Needle -->
+        <g class="needle" id="needle" style="transform: rotate(-90deg)">
+          <line class="needle-line" x1="140" y1="140" x2="140" y2="45" />
+          <circle class="needle-center" cx="140" cy="140" r="6" />
+        </g>
+      </svg>
+
+      <div class="gauge-value">
+        <div class="gauge-number" id="gaugeNumber">0</div>
+        <div class="gauge-unit">Mbps</div>
+        <div class="gauge-label" id="gaugeLabel">готово</div>
+      </div>
+    </div>
+
+    <p class="status" id="status">Нажмите «Старт» для проверки</p>
+
+    <button class="start-btn" id="startBtn">Старт</button>
+
+    <!-- Results -->
+    <div class="results" id="results">
+      <div class="card">
+        <div class="card-title">Скорость соединения</div>
+        <div class="metrics">
+          <div class="metric">
+            <div class="metric-value" id="downloadValue">—</div>
+            <div class="metric-unit">Mbps</div>
+            <div class="metric-label">Download</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value" id="uploadValue">—</div>
+            <div class="metric-unit">Mbps</div>
+            <div class="metric-label">Upload</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value" id="pingValue">—</div>
+            <div class="metric-unit">ms</div>
+            <div class="metric-label">Ping</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Ваше местоположение</div>
+        <div class="location-row">
+          <div class="flag" id="flag">🏳️</div>
+          <div class="location-text">
+            <div class="country-name" id="countryValue">—</div>
+            <div class="city-name" id="cityValue">—</div>
+          </div>
+        </div>
+        <div class="info-row">
+          <span class="info-label">IP-адрес</span>
+          <span class="info-value" id="ipValue">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Провайдер</span>
+          <span class="info-value" id="ispValue">—</span>
+        </div>
+      </div>
+
+      <button class="retry-btn" id="retryBtn">Повторить тест</button>
+    </div>
+  </main>
+
+  <footer>Powered by Cloudflare · Минималистичный тест</footer>
+
+  <script>
+    // ===== DOM =====
+    const startBtn = document.getElementById('startBtn');
+    const statusEl = document.getElementById('status');
+    const resultsEl = document.getElementById('results');
+    const gaugeProgress = document.getElementById('gaugeProgress');
+    const needle = document.getElementById('needle');
+    const gaugeNumber = document.getElementById('gaugeNumber');
+    const gaugeLabel = document.getElementById('gaugeLabel');
+    const downloadValue = document.getElementById('downloadValue');
+    const uploadValue = document.getElementById('uploadValue');
+    const pingValue = document.getElementById('pingValue');
+    const ipValue = document.getElementById('ipValue');
+    const countryValue = document.getElementById('countryValue');
+    const cityValue = document.getElementById('cityValue');
+    const ispValue = document.getElementById('ispValue');
+    const flagEl = document.getElementById('flag');
+    const retryBtn = document.getElementById('retryBtn');
+
+    // Arc length of the 180° path (approx)
+    const ARC_LENGTH = 345.6; // π * 110
+    gaugeProgress.style.strokeDasharray = ARC_LENGTH;
+    gaugeProgress.style.strokeDashoffset = ARC_LENGTH;
+
+    // Max speed for full scale (Mbps)
+    const MAX_SPEED = 500;
+
+    // ===== Draw ticks =====
+    (function drawTicks() {
+      const ticksGroup = document.getElementById('ticks');
+      const cx = 140, cy = 140, r = 110;
+      for (let i = 0; i <= 10; i++) {
+        const angle = Math.PI + (i / 10) * Math.PI; // from left to right
+        const x1 = cx + Math.cos(angle) * (r - 8);
+        const y1 = cy + Math.sin(angle) * (r - 8);
+        const x2 = cx + Math.cos(angle) * (r + 2);
+        const y2 = cy + Math.sin(angle) * (r + 2);
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+        if (i % 5 === 0) line.setAttribute('stroke-width', '3');
+        ticksGroup.appendChild(line);
+      }
+    })();
+
+    // ===== Gauge helpers =====
+    function setGauge(speedMbps, label) {
+      const clamped = Math.min(Math.max(speedMbps, 0), MAX_SPEED);
+      const ratio = clamped / MAX_SPEED;
+
+      // Progress arc
+      const offset = ARC_LENGTH * (1 - ratio);
+      gaugeProgress.style.strokeDashoffset = offset;
+
+      // Needle: -90° (left) → +90° (right)
+      const deg = -90 + ratio * 180;
+      needle.style.transform = `rotate(${deg}deg)`;
+
+      // Number
+      gaugeNumber.textContent = speedMbps >= 100
+        ? Math.round(speedMbps)
+        : speedMbps >= 10
+          ? speedMbps.toFixed(1)
+          : speedMbps.toFixed(2);
+
+      if (label) gaugeLabel.textContent = label;
+    }
+
+    function resetGauge() {
+      setGauge(0, 'готово');
+      gaugeProgress.style.strokeDashoffset = ARC_LENGTH;
+      needle.style.transform = 'rotate(-90deg)';
+      gaugeNumber.textContent = '0';
+    }
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function formatMbps(v) {
+      if (v == null || isNaN(v)) return '—';
+      if (v >= 100) return Math.round(v).toString();
+      if (v >= 10) return v.toFixed(1);
+      return v.toFixed(2);
+    }
+
+    // Country code → flag emoji
+    function countryCodeToFlag(code) {
+      if (!code || code.length !== 2) return '🏳️';
+      const c = code.toUpperCase();
+      return String.fromCodePoint(
+        ...[...c].map(ch => 0x1F1E6 - 65 + ch.charCodeAt(0))
+      );
+    }
+
+    // ===== Cloudflare endpoints =====
+    const CF_DOWN = 'https://speed.cloudflare.com/__down?bytes=';
+    const CF_UP   = 'https://speed.cloudflare.com/__up';
+
+    // ===== Measurements =====
+    async function measurePing(samples = 7) {
+      const times = [];
+      for (let i = 0; i < samples; i++) {
+        const t0 = performance.now();
+        try {
+          await fetch(CF_DOWN + '0&tid=' + Math.random(), { cache: 'no-store', mode: 'cors' });
+          times.push(performance.now() - t0);
+        } catch (_) {}
+        await new Promise(r => setTimeout(r, 40));
+      }
+      if (!times.length) return null;
+      times.sort((a, b) => a - b);
+      const mid = Math.floor(times.length / 2);
+      return times.length % 2 ? times[mid] : (times[mid - 1] + times[mid]) / 2;
+    }
+
+    async function measureDownload(onProgress) {
+      const sizes = [2_000_000, 10_000_000, 25_000_000];
+      let totalBytes = 0;
+      const tStart = performance.now();
+
+      for (let i = 0; i < sizes.length; i++) {
+        const resp = await fetch(CF_DOWN + sizes[i] + '&tid=' + Math.random(), {
+          cache: 'no-store', mode: 'cors'
+        });
+        if (!resp.ok) throw new Error('Download failed');
+
+        const reader = resp.body.getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          totalBytes += value.length;
+          const elapsed = (performance.now() - tStart) / 1000;
+          if (elapsed > 0.15) {
+            const mbps = (totalBytes * 8) / elapsed / 1e6;
+            onProgress?.(mbps);
+          }
+        }
+      }
+      const duration = (performance.now() - tStart) / 1000;
+      return (totalBytes * 8) / duration / 1e6;
+    }
+
+    async function measureUpload(onProgress) {
+      const size = 10_000_000;
+      const payload = new Uint8Array(size);
+      for (let i = 0; i < size; i += 4096) payload[i] = (Math.random() * 256) | 0;
+
+      const tStart = performance.now();
+      const resp = await fetch(CF_UP, {
+        method: 'POST',
+        body: payload,
+        cache: 'no-store',
+        mode: 'cors'
+      });
+      if (!resp.ok) throw new Error('Upload failed');
+      await resp.text();
+
+      const duration = (performance.now() - tStart) / 1000;
+      const mbps = (size * 8) / duration / 1e6;
+      onProgress?.(mbps);
+      return mbps;
+    }
+
+    async function getIpInfo() {
+      // 1. ipapi.co (best data + country_code)
+      try {
+        const r = await fetch('https://ipapi.co/json/', { cache: 'no-store' });
+        if (r.ok) {
+          const d = await r.json();
+          if (d.ip) {
+            return {
+              ip: d.ip,
+              country: d.country_name || d.country || '—',
+              countryCode: d.country_code || d.country || '',
+              city: d.city || '—',
+              isp: d.org || d.asn || '—'
+            };
+          }
+        }
+      } catch (_) {}
+
+      // 2. Cloudflare trace
+      try {
+        const r = await fetch('https://speed.cloudflare.com/cdn-cgi/trace', { cache: 'no-store' });
+        if (r.ok) {
+          const text = await r.text();
+          const data = {};
+          text.trim().split('\n').forEach(line => {
+            const [k, v] = line.split('=');
+            if (k && v) data[k] = v;
+          });
+          return {
+            ip: data.ip || '—',
+            country: data.loc || '—',
+            countryCode: data.loc || '',
+            city: '—',
+            isp: data.colo ? `Cloudflare (${data.colo})` : '—'
+          };
+        }
+      } catch (_) {}
+
+      // 3. Fallback
+      try {
+        const r = await fetch('https://api.ipify.org?format=json', { cache: 'no-store' });
+        if (r.ok) {
+          const d = await r.json();
+          return { ip: d.ip, country: '—', countryCode: '', city: '—', isp: '—' };
+        }
+      } catch (_) {}
+
+      return { ip: '—', country: '—', countryCode: '', city: '—', isp: '—' };
+    }
+
+    // ===== Main test flow =====
+    async function runTest() {
+      startBtn.disabled = true;
+      startBtn.classList.add('running');
+      startBtn.textContent = 'Тестируем...';
+      resultsEl.classList.remove('visible');
+      resetGauge();
+
+      try {
+        // 1. Ping
+        setStatus('Измеряем пинг...');
+        gaugeLabel.textContent = 'пинг';
+        const ping = await measurePing();
+        pingValue.textContent = ping != null ? Math.round(ping) : '—';
+
+        // 2. Download (live gauge)
+        setStatus('Скачивание...');
+        gaugeLabel.textContent = 'download';
+        const download = await measureDownload(mbps => {
+          setGauge(mbps, 'download');
+        });
+        setGauge(download, 'download');
+        downloadValue.textContent = formatMbps(download);
+
+        // 3. Upload (live gauge)
+        setStatus('Загрузка...');
+        gaugeLabel.textContent = 'upload';
+        // brief reset visual for upload phase
+        setGauge(0, 'upload');
+        const upload = await measureUpload(mbps => {
+          setGauge(mbps, 'upload');
+        });
+        setGauge(upload, 'upload');
+        uploadValue.textContent = formatMbps(upload);
+
+        // 4. IP + location
+        setStatus('Определяем IP и страну...');
+        gaugeLabel.textContent = 'готово';
+        const info = await getIpInfo();
+        ipValue.textContent = info.ip;
+        countryValue.textContent = info.country;
+        cityValue.textContent = info.city !== '—' ? info.city : '—';
+        ispValue.textContent = info.isp;
+        flagEl.textContent = countryCodeToFlag(info.countryCode);
+
+        // Final gauge shows download speed
+        setGauge(download, 'download');
+
+        setStatus('Готово');
+        startBtn.classList.remove('running');
+        startBtn.disabled = false;
+        startBtn.textContent = 'Старт';
+
+        // Show results with animation
+        resultsEl.classList.add('visible');
+
+      } catch (err) {
+        console.error(err);
+        setStatus('Ошибка. Проверьте интернет и попробуйте снова.');
+        gaugeLabel.textContent = 'ошибка';
+        startBtn.disabled = false;
+        startBtn.classList.remove('running');
+        startBtn.textContent = 'Старт';
+        resetGauge();
+      }
+    }
+
+    startBtn.addEventListener('click', runTest);
+    retryBtn.addEventListener('click', () => {
+      resultsEl.classList.remove('visible');
+      downloadValue.textContent = '—';
+      uploadValue.textContent = '—';
+      pingValue.textContent = '—';
+      ipValue.textContent = '—';
+      countryValue.textContent = '—';
+      cityValue.textContent = '—';
+      ispValue.textContent = '—';
+      flagEl.textContent = '🏳️';
+      setStatus('Нажмите «Старт» для проверки');
+      runTest();
+    });
+
+    // Soft preload of IP
+    getIpInfo().then(info => {
+      if (info.ip !== '—') {
+        ipValue.textContent = info.ip;
+        countryValue.textContent = info.country;
+        cityValue.textContent = info.city;
+        ispValue.textContent = info.isp;
+        flagEl.textContent = countryCodeToFlag(info.countryCode);
+      }
+    });
+  </script>
+</body>
+</html>
